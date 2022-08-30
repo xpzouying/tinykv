@@ -22,6 +22,12 @@ func (server *Server) RawGet(_ context.Context, req *kvrpcpb.RawGetRequest) (*kv
 		return nil, err
 	}
 
+	if data == nil {
+		return &kvrpcpb.RawGetResponse{
+			NotFound: true,
+		}, nil
+	}
+
 	return &kvrpcpb.RawGetResponse{
 		Value: data,
 	}, nil
