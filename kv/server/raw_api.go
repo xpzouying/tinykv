@@ -80,5 +80,39 @@ func (server *Server) RawDelete(_ context.Context, req *kvrpcpb.RawDeleteRequest
 func (server *Server) RawScan(_ context.Context, req *kvrpcpb.RawScanRequest) (*kvrpcpb.RawScanResponse, error) {
 	// Your Code Here (1).
 	// Hint: Consider using reader.IterCF
-	return nil, nil
+
+	reader, err := server.storage.Reader(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var kvs []*kvrpcpb.KvPair
+
+	count := 0
+	iter := reader.IterCF(req.GetCf())
+	for iter.Seek(req.GetStartKey()); iter.Valid(); iter.Next() {
+		item := iter.Item()
+		key := item.KeyCopy(nil)
+
+		value, err := item.ValueCopy(nil)
+		if err != nil {
+			return nil, err
+		}
+
+		kv := &kvrpcpb.KvPair{
+			Key:   key,
+			Value: value,
+		}
+
+		kvs = append(kvs, kv)
+
+		count++
+		if count >= int(req.GetLimit()) {
+			break
+		}
+	}
+
+	return &kvrpcpb.RawScanResponse{
+		Kvs: kvs,
+	}, nil
 }
