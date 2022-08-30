@@ -59,6 +59,20 @@ func (server *Server) RawPut(_ context.Context, req *kvrpcpb.RawPutRequest) (*kv
 func (server *Server) RawDelete(_ context.Context, req *kvrpcpb.RawDeleteRequest) (*kvrpcpb.RawDeleteResponse, error) {
 	// Your Code Here (1).
 	// Hint: Consider using Storage.Modify to store data to be deleted
+
+	batch := []storage.Modify{
+		{
+			Data: storage.Delete{
+				Cf:  req.GetCf(),
+				Key: req.GetKey(),
+			},
+		},
+	}
+
+	if err := server.storage.Write(nil, batch); err != nil {
+		return nil, err
+	}
+
 	return nil, nil
 }
 
