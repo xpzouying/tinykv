@@ -1,6 +1,7 @@
 package standalone_storage
 
 import (
+	"errors"
 	"path"
 
 	"github.com/Connor1996/badger"
@@ -50,8 +51,15 @@ func (s *StandAloneStorage) Write(ctx *kvrpcpb.Context, batch []storage.Modify) 
 
 	for _, one := range batch {
 
-		if err := engine_util.PutCF(s.engine.Kv, one.Cf(), one.Key(), one.Value()); err != nil {
-			return err
+		switch v := one.Data.(type) {
+		case storage.Put:
+			return engine_util.PutCF(s.engine.Kv, v.Cf, v.Key, v.Value)
+
+		case storage.Delete:
+			return engine_util.DeleteCF(s.engine.Kv, v.Cf, v.Key)
+
+		default:
+			return errors.New("unknown Modify function")
 		}
 	}
 
@@ -63,12 +71,20 @@ type standAloneStorageReader struct {
 }
 
 func (r *standAloneStorageReader) GetCF(cf string, key []byte) ([]byte, error) {
-	return engine_util.GetCFFromTxn(r.txn, cf, key)
+	data, err := engine_util.GetCFFromTxn(r.txn, cf, key)
+	if err != nil {
+		if errors.Is(err, badger.ErrKeyNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return data, nil
 }
 
 func (r *standAloneStorageReader) IterCF(cf string) engine_util.DBIterator {
 
-	return nil
+	return engine_util.NewCFIterator(cf, r.txn)
 }
 
 func (r *standAloneStorageReader) Close() {
